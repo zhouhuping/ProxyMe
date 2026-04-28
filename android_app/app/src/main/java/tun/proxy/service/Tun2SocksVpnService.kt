@@ -235,20 +235,31 @@ class Tun2SocksVpnService : VpnService() {
 
         val app = this.application as MyApplication
         if (app.loadVPNMode() == MyApplication.VPNMode.DISALLOW) {
-            val disallowedApps = app.loadVPNApplication(MyApplication.VPNMode.DISALLOW)
-            for (appPackageName in disallowedApps) {
-                builder.addDisallowedApplication(appPackageName)
-            }
-            MyApplication.getInstance().storeVPNApplication(MyApplication.VPNMode.DISALLOW, disallowedApps)
+              val disallowedApps = app.loadVPNApplication(MyApplication.VPNMode.DISALLOW).toMutableSet()
+        
+              // 黑名单模式下，把当前 App 自己排除，避免自身流量再走回 VPN
+              disallowedApps.add(packageName)
+        
+              for (pkg in disallowedApps) {
+                  builder.addDisallowedApplication(pkg)
+              }
+        
+              MyApplication.getInstance().storeVPNApplication(
+                  MyApplication.VPNMode.DISALLOW,
+                  disallowedApps
+              )
         } else {
-            val allowedApps = app.loadVPNApplication(MyApplication.VPNMode.ALLOW)
-            for (appPackageName in allowedApps) {
-                builder.addAllowedApplication(appPackageName)
-            }
-            MyApplication.getInstance().storeVPNApplication(MyApplication.VPNMode.ALLOW, allowedApps)
+              val allowedApps = app.loadVPNApplication(MyApplication.VPNMode.ALLOW).filter { it != packageName } // 白名单模式下不要把自己加进去
+        
+              for (pkg in allowedApps) {
+                  builder.addAllowedApplication(pkg)
+              }
+        
+              MyApplication.getInstance().storeVPNApplication(
+                  MyApplication.VPNMode.ALLOW,
+                  allowedApps.toSet()
+              )
         }
-
-        builder.addDisallowedApplication(packageName)
 
         try {
             vpnInterface = builder.establish()
